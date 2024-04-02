@@ -7,6 +7,8 @@
     "imgbb-uploader": "^1.5.1",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.9.2",
+    "parse-data-url": "^6.0.0",
+    "rimraf": "^5.0.5",
     "webpack": "^5.90.3"
   }
 }

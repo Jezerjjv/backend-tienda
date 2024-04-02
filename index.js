@@ -14,14 +14,15 @@ const dotenv = require('dotenv');
 const webpack = require('webpack');
 const http = require('http');
 var imgbbUploader = require('imgbb-uploader');
-
+const parseDataUrl = require('parse-data-url');
 const PORT = process.env.PORT || 3977;
 const URL_CARPETA_FOTOS = "C:/Users/jezer/OneDrive/Documentos/Proyectos/tienda/frontend/src/_imagenes/";
 const TOKEN = "259b2d2bb88db93aa54a2e50096280db"
+var rimraf = require("rimraf");
 
 app.use(cors());
 app.use(express.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ limit: '50mb',extended: true, parameterLimit:50000}));
 
 app.listen(PORT, () => {
     console.log(`Server corriendo en ${PORT}`);
@@ -200,9 +201,21 @@ app.delete('/api/delete/imagen/:id', (req, res) => {
         res.send(err);
     });
 });
+const storage_fabricante = multer.diskStorage({
+    destination: path.join(__dirname,'uploads'),
+    filename: (req, file, cb) => {
+        cb(null, file.originalname)
+    }
+})
 
+const upload = multer({
+    storage: storage_fabricante,
+    limits: { fileSize: 9999999 },
+    dest: path.join(__dirname,'uploads')
+}).single('img_principal');
 
-app.post('/api/product/save', (req, res) => {
+app.post('/api/product/save', upload,(req, res) => {
+    console.log(req.body);
     const isEdit = req.body.isEdit;
     const id = req.body.id;
     const nombre = req.body.nombre;
@@ -211,27 +224,33 @@ app.post('/api/product/save', (req, res) => {
     const precio_oferta = req.body.precio_oferta;
     const rating = req.body.rating;
     const id_categoria = req.body.categoria;
-    const img_principal = req.body.img_principal;
     const is_new = req.body.is_new;
     const in_stock = req.body.in_stock;
-    var url_imagen = URL_CARPETA_FOTOS + img_principal;
-    imgbbUploader(TOKEN, url_imagen)
+    const nombre_imagen = req.file.originalname;
+    const img = fs.readFileSync(path.join(__dirname, 'uploads/' + nombre_imagen));
+
+    imgbbUploader(TOKEN, path.join(__dirname, 'uploads/' + nombre_imagen))
         .then(response => {
             var sql = "";
-            if (isEdit) {
+            if (isEdit==="true") {
                 sql = "UPDATE product SET nombre = ?, descripcion = ?, precio = ?, precio_oferta = ?, rating = ?, img_principal = ?, id_categoria = ?, is_new = ?, in_stock = ? where id = ?";
             } else {
                 sql = "INSERT INTO product (nombre, descripcion, precio, precio_oferta, rating, img_principal, id_categoria, is_new, in_stock, id) VALUES(?,?,?,?,?,?,?,?,?,?);";
             }
+            console.log(sql);
             db.query(sql, [nombre, descripcion, precio, precio_oferta, rating, response.display_url, id_categoria, is_new, in_stock, id], async (err, result) => {
+                console.log(result);
                 if (err === null) {
                     res.send({ code: 201, result });
+                    //esto es para eliminar luego de utilizar la carpeta, no guardar basura.
                 } else {
                     res.send({ code: 202, err });
                 }
             });
+        }).then(e =>{
+            //rimraf.sync(path.join(__dirname, 'uploads/'));
         })
-        .catch(error => console.error(1));
+        .catch(error => console.error(error));
 
 
 });
